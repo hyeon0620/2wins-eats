@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% block title %}2WINS Eats 店側 売上{% endblock %}
+{% block admin %}
+<div class="row-between">
+  <div class="row align-base"><h1 class="h1">売上</h1><div class="small muted">{{ sales.range_label }}</div></div>
+  <div class="row">
+    {% for key, label in [('this_week', '今週'), ('last_week', '先週'), ('this_month', '今月')] %}<a class="chip chip-sm{% if period == key %} is-active{% endif %}" href="/admin/sales?period={{ key }}">{{ label }}</a>{% endfor %}
+    <a class="btn btn-plain btn-sm btn-fit" href="/admin/sales.csv?period={{ period }}">CSVを出力</a>
+  </div>
+</div>
+<div class="grid-4">
+  <div class="card stat"><div class="xsmall muted">売上（キャンセル除く）</div><div class="stat-num">{{ sales.total|yen }}</div>{% if sales.prev_total is not none %}<div class="xsmall {{ 'green' if sales.total >= sales.prev_total else 'danger' }}">先週より {{ (sales.total - sales.prev_total)|abs|yen }} {{ '増' if sales.total >= sales.prev_total else '減' }}</div>{% endif %}</div>
+  <div class="card stat"><div class="xsmall muted">注文数</div><div class="stat-num">{{ sales.order_count }}件</div><div class="xsmall muted">1日あたり {{ sales.per_day }}件</div></div>
+  <div class="card stat"><div class="xsmall muted">客単価（売上 ÷ 注文数）</div><div class="stat-num">{{ sales.average|yen }}</div></div>
+  <div class="card stat"><div class="xsmall muted">キャンセル・お断り</div><div class="stat-num">{{ sales.cancelled_count }}件</div><div class="xsmall muted">{{ sales.cancelled_amount|yen }}・売上に含めない</div></div>
+</div>
+<div class="sales-grid">
+  <div class="card stack-sm">
+    <div class="row-between align-base"><span class="small bold">日別売上</span><span class="xsmall muted">単位：円</span></div>
+    <div class="bars">
+      {% for d in sales.days %}
+      <div class="bar-col"><div class="xsmall {{ 'bold' if d.is_today else 'muted' }}">{{ "{:,}".format(d.total) if d.total else '' }}</div><div class="bar{% if d.is_today %} is-today{% endif %}" style="height: {{ (d.total / sales.max_day_total * 160)|round|int if sales.max_day_total else 0 }}px"></div></div>
+      {% endfor %}
+    </div>
+    <div class="bars-labels">{% for d in sales.days %}<div class="xsmall {{ 'bold' if d.is_today else 'muted' }}">{{ d.label }}{% if d.is_today %}<br>今日{% endif %}</div>{% endfor %}</div>
+  </div>
+  <div class="card stack-sm">
+    <div class="small bold">よく売れた商品</div>
+    <div class="top-grid xsmall muted"><div>#</div><div>商品</div><div class="right">数量</div><div class="right">売上</div></div>
+    {% for t in sales.top_items %}
+    <div class="top-grid small"><div class="bold">{{ t.rank }}</div><div class="row"><img class="thumb-32" src="/static/img/{{ t.image }}" alt="">{{ t.name }}</div><div class="right">{{ t.quantity }}</div><div class="right bold">{{ t.revenue|yen }}</div></div>
+    {% else %}
+    <div class="small muted">この期間の売上はありません</div>
+    {% endfor %}
+    <div class="xsmall muted mt-auto">オプションの追加料金 {{ sales.option_extra_total|yen }} は各商品の売上に含む</div>
+  </div>
+</div>
+{% endblock %}

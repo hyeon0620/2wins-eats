@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block title %}2WINS Eats 注文確認{% endblock %}
+{% block content %}
+<div class="steps"><a href="/cart">1. カート</a><span>›</span><span class="is-active">2. 注文確認</span><span>›</span><span>3. 完了</span></div>
+<div class="two-col">
+  <div class="main-col stack-lg">
+    <h1 class="h1">注文確認</h1>
+    <form id="checkout-form" class="grid-2">
+      <div class="card stack-sm">
+        <div class="small bold">配達先</div>
+        {% for a in addresses %}
+        <label class="radio-card"><input type="radio" name="address_id" value="{{ a.id }}"{% if a.is_default %} checked{% endif %}><span class="stack-none"><span class="medium">{{ a.label }}</span><span class="xsmall muted">{{ a.short_text }}</span></span></label>
+        {% else %}
+        <div class="error">配達先が登録されていません</div>
+        {% endfor %}
+      </div>
+      <div class="card stack-sm">
+        <div class="small bold">配達時間</div>
+        <label class="radio-card"><input type="radio" name="when" value="now" checked>今すぐ（{{ eta|hm }} ごろ到着）</label>
+        <label class="radio-card"><input type="radio" name="when" value="scheduled"{% if not hours %} disabled{% endif %}>時間を指定
+          <span class="row ml-auto">
+            <select class="select select-sm" name="hour" aria-label="時"{% if not hours %} disabled{% endif %}>{% for h in hours %}<option value="{{ h }}">{{ "%02d"|format(h) }}</option>{% endfor %}</select><span class="small muted">時</span>
+            <select class="select select-sm" name="minute" aria-label="分"{% if not hours %} disabled{% endif %}>{% for m in [0, 15, 30, 45] %}<option value="{{ m }}">{{ "%02d"|format(m) }}</option>{% endfor %}</select><span class="small muted">分</span>
+          </span>
+        </label>
+        {% if not hours %}<div class="xsmall muted">本日は時間指定できません</div>{% endif %}
+      </div>
+      <div class="card stack-sm span-2">
+        <div class="small bold">支払い方法</div>
+        <div class="grid-3">
+          {% for c in cards %}
+          <label class="radio-card"><input type="radio" name="payment" value="card" data-card="{{ c.id }}"{% if default_card and c.id == default_card.id %} checked{% endif %}>クレジットカード（末尾 {{ c.last4 }}）</label>
+          {% endfor %}
+          <label class="radio-card"><input type="radio" name="payment" value="cash"{% if not cards %} checked{% endif %}>現金（受け取り時）</label>
+          <label class="radio-card{% if not user.is_employee %} is-disabled{% endif %}"><input type="radio" name="payment" value="company"{% if not user.is_employee %} disabled{% endif %}>社内請求（社員のみ）</label>
+        </div>
+        {% if not cards %}<div class="small muted">カードは登録されていません。現金か社内請求を選んでください。</div>{% endif %}
+      </div>
+    </form>
+  </div>
+  <aside class="side side-sum">
+    <div class="row-between align-base"><div class="h3">ご注文内容</div><div class="small muted">{{ shop.name }}</div></div>
+    {% for line in cart.lines %}
+    <div class="side-item"><img src="/static/img/{{ line.image }}" alt=""><div class="stack-none"><span class="small medium">{{ line.name }} ×{{ line.quantity }}</span>{% if line.choice_names %}<span class="xsmall muted">{{ line.choice_names|join('・') }}</span>{% endif %}</div><span class="small bold">{{ line.total|yen }}</span></div>
+    {% endfor %}
+    <div class="sum stack-xs">
+      <div class="sum-row"><span>小計</span><span>{{ summary.subtotal|yen }}</span></div>
+      <div class="sum-row"><span>配達料</span><span>{{ summary.delivery_fee|yen }}</span></div>
+      {% if summary.discount %}<div class="sum-row muted"><span>クーポン割引（{{ cart.coupon_code }}）</span><span>−{{ summary.discount|yen }}</span></div>{% endif %}
+      <div class="hr"></div>
+      <div class="sum-row sum-total"><span>合計</span><span>{{ summary.total|yen }}</span></div>
+    </div>
+    <div class="error" id="order-error" hidden></div>
+    <button class="btn btn-primary btn-md" id="place-btn" type="button">注文を確定する</button>
+    <div class="small muted center">確定後は店が受け付けるまでキャンセルできます</div>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById("checkout-form");
+  const TODAY = {{ today|tojson }};
+  const btn = document.getElementById("place-btn");
+  const errorEl = document.getElementById("order-error");
+  form.addEventListener("change", () => {
+    form.querySelectorAll(".radio-card").forEach(l => { const i = l.querySelector("input"); l.classList.toggle("is-active", i && i.checked); });
+  });
+  form.dispatchEvent(new Event("change"));
+  btn.addEventListener("click", async () => {
+    Eats.showError(errorEl, "");
+    const pay = form.querySelector("input[name=payment]:checked");
+    const addr = form.querySelector("input[name=address_id]:checked");
+    const when = form.querySelector("input[name=when]:checked").value;
+    const body = {
+      address_id: addr ? Number(addr.value) : null,
+      payment: pay ? pay.value : null,
+      card_id: pay && pay.dataset.card ? Number(pay.dataset.card) : null,
+      scheduled_for: when === "scheduled" ? `${TODAY}T${String(form.hour.value).padStart(2, "0")}:${String(form.minute.value).padStart(2, "0")}:00+09:00` : null,
+    };
+    try {
+      const order = await Eats.api("POST", "/api/orders", body);
+      location.href = "/orders/" + order.id;
+    } catch (err) {
+      Eats.showError(errorEl, err.message);
+    }
+  });
+})();
+</script>
+{% endblock %}

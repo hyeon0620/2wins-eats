@@ -1,0 +1,91 @@
+{% extends "admin/base.html" %}
+{% block title %}2WINS Eats 店側 注文受付{% endblock %}
+{% block admin %}
+<div class="row-between">
+  <div class="row align-base"><h1 class="h1">本日の注文</h1><div class="small muted">{{ now|jpdate_week }} <span id="clock">{{ now|hm }}</span> 現在</div></div>
+  <div class="row small"><div><span class="muted">本日 </span><span class="bold" id="today-count">{{ today_count }}件</span></div><div><span class="muted">売上 </span><span class="bold" id="today-amount">{{ today_amount|yen }}</span></div></div>
+</div>
+<div class="board" id="board">
+  {% for key, label, color in [('new', '新着', 'red'), ('accepted', '調理中', 'yellow'), ('ready', '配達待ち', 'green')] %}
+  <div class="board-col">
+    <div class="row small bold"><span class="dot dot-{{ color }}"></span>{{ label }}<span class="muted normal" data-count="{{ key }}">{{ board[key]|length }}件</span></div>
+    <div class="stack-sm" data-col="{{ key }}"></div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+{% block modals %}
+<div class="modal-backdrop" id="reject-modal" hidden>
+  <div class="modal" role="dialog" aria-label="注文を断りますか">
+    <div class="row-between"><div class="stack-none"><div class="h2">注文 #<span id="reject-id"></span> を断りますか？</div><div class="small muted" id="reject-sub"></div></div><button type="button" class="icon-btn" data-close aria-label="閉じる"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="stack-xs"><div class="small bold">理由（お客様に表示されます）</div>{% for r in reject_reasons %}<label class="check check-md"><input type="radio" name="reject-reason" value="{{ r }}"{% if loop.first %} checked{% endif %}>{{ r }}</label>{% endfor %}</div>
+    <div class="field"><label for="reject-message">お客様へのひとこと（任意）</label><textarea class="textarea" id="reject-message" rows="2" placeholder="例：本日はケバブサンドが売り切れました。申し訳ありません。"></textarea></div>
+    <div class="notice notice-yellow">断ると注文は「お断り」になり、お客様に理由が通知されます。カード決済の注文は自動で返金されます。この操作は取り消せません。</div>
+    <div class="error" id="reject-error" hidden></div>
+    <div class="row-end"><button type="button" class="btn btn-plain btn-md btn-fit" data-close>戻る</button><button type="button" class="btn btn-danger btn-md btn-fit" id="reject-confirm">この注文を断る</button></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const COLORS = { new: "red", accepted: "yellow", ready: "green" };
+  const modal = document.getElementById("reject-modal");
+  let rejecting = null;
+
+  function card(order, key) {
+    const el = document.createElement("div");
+    el.className = "order-card order-card-" + COLORS[key];
+    const time = order.placed_at.slice(11, 16);
+    const lines = order.lines.map(l => `${l.name}${l.choice_names.length ? "（" + l.choice_names.join("・") + "）" : ""}×${l.quantity}`).join("<br>");
+    const pay = order.payment === "card" ? "カード決済済み" : order.payment === "cash" ? "現金" : "社内請求";
+    let actions = "";
+    if (key === "new") actions = `<div class="row"><button class="btn btn-primary btn-sm flex-1" data-accept="${order.id}">受け付ける</button><button class="btn btn-plain btn-sm danger" data-reject="${order.id}">断る</button></div>`;
+    else if (key === "accepted") actions = `<button class="btn btn-outline btn-sm" data-ready="${order.id}">調理完了</button>`;
+    else actions = `<div class="xsmall muted row"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>配達員の到着を待っています（客側：${order.status.label}）</div>`;
+    el.innerHTML = `<div class="row-between align-base"><span class="bold">#${order.id}</span><span class="xsmall muted">${time} ${key === "new" ? "受信" : "受付"}</span></div>
+      <div class="xsmall muted">${order.user_name} さん・${order.address_label}</div>
+      <div class="small">${lines}</div>
+      <div class="row-between"><span class="bold">${Eats.yen(order.total)}</span><span class="xsmall muted">${pay}</span></div>${actions}`;
+    el.dataset.order = JSON.stringify({ id: order.id, user: order.user_name, total: order.total, pay, summary: order.lines.map(l => l.name + " ×" + l.quantity).join("、") });
+    return el;
+  }
+  function render(board) {
+    for (const key of Object.keys(board)) {
+      const col = document.querySelector(`[data-col="${key}"]`);
+      col.replaceChildren(...board[key].map(o => card(o, key)));
+      document.querySelector(`[data-count="${key}"]`).textContent = board[key].length + "件";
+    }
+  }
+  async function refresh() {
+    try { render(await Eats.api("GET", "/api/admin/orders")); } catch (err) { /* 次回に取り直す */ }
+  }
+  document.getElementById("board").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    try {
+      if (btn.dataset.accept) { await Eats.api("POST", `/api/admin/orders/${btn.dataset.accept}/accept`); refresh(); }
+      else if (btn.dataset.ready) { await Eats.api("POST", `/api/admin/orders/${btn.dataset.ready}/ready`); refresh(); }
+      else if (btn.dataset.reject) {
+        const info = JSON.parse(btn.closest(".order-card").dataset.order);
+        rejecting = info.id;
+        document.getElementById("reject-id").textContent = info.id;
+        document.getElementById("reject-sub").textContent = `${info.user} さん・${info.summary}・${Eats.yen(info.total)}・${info.pay}`;
+        modal.hidden = false;
+      }
+    } catch (err) { alert(err.message); refresh(); }
+  });
+  modal.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => { modal.hidden = true; }));
+  document.getElementById("reject-confirm").addEventListener("click", async () => {
+    const reason = modal.querySelector("input[name=reject-reason]:checked").value;
+    try {
+      await Eats.api("POST", `/api/admin/orders/${rejecting}/reject`, { reason, message: document.getElementById("reject-message").value });
+      modal.hidden = true;
+      refresh();
+    } catch (err) { Eats.showError(document.getElementById("reject-error"), err.message); }
+  });
+  refresh();
+  setInterval(refresh, 2000);  // 新しい注文を2秒ごとに取り直す
+})();
+</script>
+{% endblock %}

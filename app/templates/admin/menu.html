@@ -1,0 +1,45 @@
+{% extends "admin/base.html" %}
+{% block title %}2WINS Eats 店側 メニュー管理{% endblock %}
+{% block admin %}
+<div class="row-between">
+  <div class="row align-base"><h1 class="h1">メニュー管理</h1><div class="small muted">{{ items|length }}品・販売中 {{ on_sale }}品</div></div>
+  <a class="btn btn-primary btn-sm btn-fit" href="/admin/menu/new">＋ 商品を追加</a>
+</div>
+<div class="card-plain table">
+  <div class="table-head menu-grid"><div>画像</div><div>商品名</div><div>価格（税込）</div><div>オプション</div><div>販売状況</div><div></div></div>
+  {% for item in items %}
+  <div class="table-row menu-grid" data-item="{{ item.id }}">
+    <img class="thumb-56" src="/static/img/{{ item.image }}" alt="{{ item.name }}">
+    <div class="stack-none"><span class="bold">{{ item.name }}</span><span class="xsmall muted">{{ item.description }}</span></div>
+    <div class="row"><span class="muted">¥</span><input class="input input-sm input-num" type="text" value="{{ item.price }}" data-price aria-label="{{ item.name }}の価格"></div>
+    <div class="small muted">{{ item.option_groups|map(attribute='name')|join('・') or 'なし' }}</div>
+    <label class="check"><input type="checkbox" data-available{% if item.available %} checked{% endif %}><span class="{{ 'green bold' if item.available else 'muted' }}" data-available-label>{{ '販売中' if item.available else '売り切れ' }}</span></label>
+    <a class="btn btn-xs btn-plain" href="/admin/menu/{{ item.id }}">編集</a>
+  </div>
+  {% endfor %}
+</div>
+<div class="card row-between">
+  <div class="stack-none"><div class="small bold">店の設定</div><div class="small muted">営業時間 {{ store.hours[0][0].strftime('%H:%M') if store.hours[0] else '定休' }}〜{{ store.hours[0][1].strftime('%H:%M') if store.hours[0] else '' }}・配達料 {{ store.delivery_fee|yen }}・最低注文金額 {{ store.min_order|yen }}{% if store.free_delivery_from is not none %}・{{ store.free_delivery_from|yen }} 以上で配達料無料{% endif %}・いま：{{ status.label }}</div></div>
+  <a class="btn btn-outline btn-sm btn-fit" href="/admin/settings">変更</a>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll("[data-item]").forEach(row => {
+  const id = row.dataset.item;
+  row.querySelector("[data-available]").addEventListener("change", async (e) => {
+    try {
+      const item = await Eats.api("PATCH", "/api/admin/items/" + id, { available: e.target.checked });
+      const label = row.querySelector("[data-available-label]");
+      label.textContent = item.available ? "販売中" : "売り切れ";
+      label.className = item.available ? "green bold" : "muted";
+    } catch (err) { alert(err.message); e.target.checked = !e.target.checked; }
+  });
+  const price = row.querySelector("[data-price]");
+  price.addEventListener("change", async () => {
+    try { const item = await Eats.api("PATCH", "/api/admin/items/" + id, { price: Number(price.value) }); price.value = item.price; }
+    catch (err) { alert(err.message); }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}2WINS Eats 店側ログイン{% endblock %}
+{% block bodyclass %}admin{% endblock %}
+{% block body %}
+<main class="admin-login">
+  <form class="card stack form-narrow" method="post" action="/admin/login">
+    <div class="xsmall muted">2WINS Eats 店舗管理</div>
+    <div class="form-title">店舗ログイン</div>
+    <div class="form-lead">店舗IDとパスワードは 2WINS Eats から店ごとに発行します</div>
+    {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+    <div class="field"><label for="storeid">店舗ID</label><input class="input" id="storeid" name="store_id" type="text" placeholder="例：oscar-kebab" value="{{ store_id or '' }}"></div>
+    <div class="field"><label for="pw">パスワード</label><input class="input" id="pw" name="password" type="password"></div>
+    <label class="check"><input type="checkbox" name="remember" value="true" checked>この端末でログイン状態を保持する（店のタブレット向け）</label>
+    <button class="btn btn-primary" type="submit">ログイン</button>
+    <div class="row-between small"><a class="link" href="#" onclick="alert('店舗のパスワードは 2WINS Eats 窓口へご連絡ください'); return false">パスワードを忘れた場合</a><a class="link" href="/login">お客様のログインはこちら</a></div>
+  </form>
+</main>
+{% endblock %}

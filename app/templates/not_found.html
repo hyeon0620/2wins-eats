@@ -1,0 +1,9 @@
+{% extends "layout.html" if user else "base.html" %}
+{% block title %}2WINS Eats{% endblock %}
+{% block content %}
+<div class="empty">
+  <div class="h2">{{ message }}</div>
+  <a class="link" href="/">店一覧に戻る</a>
+</div>
+{% endblock %}
+{% block body %}{% if user %}{{ super() }}{% else %}<main class="page"><div class="empty"><div class="h2">{{ message }}</div><a class="link" href="/login">ログインへ</a></div></main>{% endif %}{% endblock %}

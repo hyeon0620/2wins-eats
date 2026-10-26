@@ -1,0 +1,86 @@
+<div class="modal-backdrop is-open">
+  <div class="dialog" role="dialog" aria-label="{{ dialog_item.name }}の詳細">
+    <div class="dialog-left">
+      <img src="/static/img/{{ dialog_item.image }}" alt="{{ dialog_item.name }}">
+      <div class="stack-xs pad">
+        <div class="h2">{{ dialog_item.name }}</div>
+        <div class="price-lg">{{ dialog_item.price|yen }}</div>
+        <div class="small muted">{{ dialog_item.description }}</div>
+        <div class="small muted">{{ shop.name }}</div>
+      </div>
+    </div>
+    <form class="dialog-right" id="item-form">
+      <div class="row-end pad-sm"><a class="icon-btn" href="/stores/{{ shop.id }}" aria-label="閉じる"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></a></div>
+      <div class="dialog-body stack">
+        {% for group in dialog_item.option_groups %}
+        <div class="stack-xs">
+          <div class="row"><span class="small bold">{{ group.name }}</span>{% if group.required %}<span class="tag-required">必須</span>{% endif %}</div>
+          {% if group.multiple %}
+          {% for c in group.choices %}
+          <label class="opt-row"><span class="row"><input type="checkbox" name="g-{{ group.id }}" value="{{ c.id }}" data-extra="{{ c.extra_price }}">{{ c.name }}</span><span class="small muted">{% if c.extra_price %}＋{{ c.extra_price|yen }}{% else %}¥0{% endif %}</span></label>
+          {% endfor %}
+          {% elif group.choices|selectattr('extra_price')|list %}
+          {% for c in group.choices %}
+          <label class="opt-row"><span class="row"><input type="radio" name="g-{{ group.id }}" value="{{ c.id }}" data-extra="{{ c.extra_price }}"{% if loop.first %} checked{% endif %}>{{ c.name }}</span><span class="small muted">{% if c.extra_price %}＋{{ c.extra_price|yen }}{% else %}¥0{% endif %}</span></label>
+          {% endfor %}
+          {% else %}
+          <div class="chips">
+            {% for c in group.choices %}
+            <label class="chip chip-opt"><input type="radio" name="g-{{ group.id }}" value="{{ c.id }}" data-extra="{{ c.extra_price }}"{% if (group.choices|length > 1 and loop.index == 2) or group.choices|length == 1 %} checked{% endif %}>{{ c.name }}</label>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+        <div class="error" id="item-error" hidden></div>
+      </div>
+      <div class="dialog-foot">
+        <div class="qty"><button type="button" class="qty-btn" id="qty-minus" aria-label="減らす">−</button><input class="qty-input" id="qty-value" type="number" value="1" aria-label="数量"><button type="button" class="qty-btn" id="qty-plus" aria-label="増やす">+</button></div>
+        <button type="submit" class="btn btn-primary btn-add" id="add-btn"><span>カートに入れる</span><span id="add-price">{{ dialog_item.price|yen }}</span></button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function () {
+  const item = {{ dialog_item_json|tojson }};
+  const storeId = {{ shop.id|tojson }};
+  const form = document.getElementById("item-form");
+  const qtyEl = document.getElementById("qty-value");
+  const priceEl = document.getElementById("add-price");
+  const errorEl = document.getElementById("item-error");
+  const qty = () => Number(qtyEl.value);
+  function setQty(n) {
+    qtyEl.value = n;
+    updatePrice();
+  }
+
+  function selectedChoices() {
+    return item.option_groups.map(g => form.querySelector(`input[name="g-${g.id}"]:checked`)).filter(Boolean);
+  }
+  function updatePrice() {
+    // 単価 ＝ 商品価格 ＋ 選んだ選択肢の追加料金の合計
+    const extras = selectedChoices().reduce((sum, el) => sum + Number(el.dataset.extra || 0), 0);
+    priceEl.textContent = Eats.yen((item.price + extras) * qty());
+    form.querySelectorAll(".chip-opt").forEach(l => l.classList.toggle("is-active", l.querySelector("input").checked));
+  }
+  document.getElementById("qty-minus").addEventListener("click", () => setQty(qty() - 1));
+  document.getElementById("qty-plus").addEventListener("click", () => setQty(qty() + 1));
+  qtyEl.addEventListener("change", () => setQty(qty()));
+  form.addEventListener("change", updatePrice);
+  updatePrice();
+
+  async function add(replace) {
+    Eats.showError(errorEl, "");
+    const body = { item_id: item.id, quantity: qty(), choice_ids: selectedChoices().map(el => el.value), replace: replace };
+    try {
+      await Eats.api("POST", "/api/cart/lines", body);
+      location.href = "/stores/" + storeId;
+    } catch (err) {
+      if (err.code === "different_store") { Eats.confirmReplace(err.message, () => add(true)); return; }
+      Eats.showError(errorEl, err.message);
+    }
+  }
+  form.addEventListener("submit", (e) => { e.preventDefault(); add(false); });
+})();
+</script>

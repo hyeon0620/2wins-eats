@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+{% block title %}2WINS Eats {{ shop.name }}{% endblock %}
+{% block hero %}
+<div class="hero">
+  <img src="/static/img/{{ shop.image }}" alt="{{ shop.name }}">
+  <a class="hero-back" href="/"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>店一覧に戻る</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="two-col">
+  <div class="main-col stack">
+    <div class="row-between align-end">
+      <div class="stack-xs">
+        <div class="row"><h1 class="h1">{{ shop.name }}</h1><span class="pill pill-{{ 'green' if status.orderable else ('dark' if status.kind == 'paused' else 'grey') }}">{{ status.label }}</span></div>
+        <div class="small muted">{{ description }}</div>
+      </div>
+      <div class="chips">
+        <a class="chip chip-sm{% if not current_category %} is-active{% endif %}" href="/stores/{{ shop.id }}">すべて</a>
+        {% for c in menu_categories %}<a class="chip chip-sm{% if c == current_category %} is-active{% endif %}" href="/stores/{{ shop.id }}?category={{ c }}">{{ c }}</a>{% endfor %}
+      </div>
+    </div>
+    {% if not status.orderable %}<div class="notice">{{ shop.name }}は現在注文を受け付けていません（{{ status.label }}{% if shop.pause_reason %}・{{ shop.pause_reason }}{% endif %}）。</div>{% endif %}
+    <div class="grid-2">
+      {% for item in items %}
+      {% if item.available %}
+      <a class="menu-item" href="/stores/{{ shop.id }}/items/{{ item.id }}">
+        <div class="menu-text"><div class="h3">{{ item.name }}</div><div class="small muted">{{ item.description }}</div><div class="price">{{ item.price|yen }}</div></div>
+        <div class="menu-thumb"><img src="/static/img/{{ item.image }}" alt="{{ item.name }}"><span class="plus" aria-hidden="true">+</span></div>
+      </a>
+      {% else %}
+      <div class="menu-item is-soldout">
+        <div class="menu-text"><div class="h3">{{ item.name }}</div><div class="small muted">{{ item.description }}</div><div class="row"><span class="price">{{ item.price|yen }}</span><span class="pill pill-grey">売り切れ</span></div></div>
+        <div class="menu-thumb"><img src="/static/img/{{ item.image }}" alt="{{ item.name }}"><button type="button" class="plus is-disabled" disabled aria-label="{{ item.name }}は売り切れ">+</button></div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  <aside class="side side-cart">
+    <div class="row-between align-base"><div class="h3">カート</div><div class="small muted">{{ cart_store.name if cart_store else '' }}</div></div>
+    {% if cart.lines and cart_same_store %}
+    {% for line in cart.lines %}
+    <div class="side-line"><span>{{ line.name }}{% if line.choice_names %}（{{ line.choice_names|join('・') }}）{% endif %}</span><span class="muted">×{{ line.quantity }}</span><span class="bold">{{ line.total|yen }}</span></div>
+    {% endfor %}
+    <div class="sum stack-xs small">
+      <div class="sum-row"><span>小計</span><span>{{ cart.summary.subtotal|yen }}</span></div>
+      <div class="sum-row"><span>配達料</span><span>{{ cart.summary.delivery_fee|yen }}</span></div>
+      {% if cart.summary.discount %}<div class="sum-row muted"><span>クーポン割引</span><span>−{{ cart.summary.discount|yen }}</span></div>{% endif %}
+      <div class="sum-row sum-total"><span>合計</span><span>{{ cart.summary.total|yen }}</span></div>
+    </div>
+    <a class="btn btn-primary btn-md" href="/cart">カートを見る</a>
+    <div class="small muted center">{% if cart.summary.min_order_ok %}最低注文金額 {{ cart.summary.min_order|yen }} を満たしています{% else %}最低注文金額 {{ cart.summary.min_order|yen }} まで、あと {{ cart.summary.short_of_min|yen }}{% endif %}</div>
+    {% elif cart.lines %}
+    <div class="small muted">カートには{{ cart_store.name }}の商品が入っています。カートに入れられるのは1つの店の商品だけです。</div>
+    <a class="btn btn-outline btn-md" href="/cart">カートを見る</a>
+    {% else %}
+    <div class="small muted">カートは空です。メニューから商品を選んでください。</div>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
+{% block modals %}
+{% if dialog_item %}{% include "item_dialog.html" %}{% endif %}
+<div class="modal-backdrop" id="conflict-modal" hidden>
+  <div class="modal" role="dialog" aria-label="カートを空にしますか">
+    <div class="h2">カートを空にして始めますか？</div>
+    <div class="small" id="conflict-message"></div>
+    <div class="row-end">
+      <button type="button" class="btn btn-plain btn-md" id="conflict-keep">今のカートを残す</button>
+      <button type="button" class="btn btn-primary btn-md" id="conflict-replace">空にして入れる</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

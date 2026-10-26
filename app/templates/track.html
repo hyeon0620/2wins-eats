@@ -1,0 +1,98 @@
+{% extends "layout.html" %}
+{% block title %}2WINS Eats 注文追跡{% endblock %}
+{% block content %}
+<div class="steps"><span>1. カート</span><span>›</span><span>2. 注文確認</span><span>›</span><span class="is-active">3. 完了</span></div>
+<div class="two-col">
+  <div class="main-col stack-lg">
+    <div class="row">
+      <div class="status-icon" id="status-icon" data-key="{{ status.key }}"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg></div>
+      <div class="stack-none"><h1 class="h1" id="heading">{{ status.heading }}</h1><div class="small muted">注文番号 #{{ order.id }}・{{ shop.name }}・{{ order.placed_at|hm }} に注文{% if order.scheduled_for %}・{{ order.scheduled_for|hm }} に配達指定{% endif %}</div></div>
+    </div>
+    <div class="card stack-lg">
+      <div class="row-between align-base">
+        <div class="h2" id="status-title"></div>
+        <div class="small muted" id="countdown">到着まで <span class="count-num" id="seconds-left">{{ status.seconds_left }}</span>（デモ用：注文から15秒で届きます）</div>
+      </div>
+      <div class="timeline" id="timeline">
+        {% for s in status.stages %}
+        {% if not loop.first %}<div class="tl-bar{% if s.done or s.current %} is-done{% endif %}"></div>{% endif %}
+        <div class="tl-step{% if s.done %} is-done{% elif s.current %} is-current{% endif %}" data-stage="{{ s.key }}"><div class="tl-dot"></div><div class="tl-label">{{ s.label }}</div><div class="tl-time" data-time>{{ s.at|hms if s.at else '—' }}</div></div>
+        {% endfor %}
+      </div>
+      <div class="notice notice-red" id="reject-box" {% if status.key != 'rejected' %}hidden{% endif %}>店がこの注文をお断りしました。理由：<span id="reject-reason">{{ order.reject_reason }}</span>{% if order.reject_message %}「{{ order.reject_message }}」{% endif %}。{% if order.payment == 'card' %}カードへの請求は取り消されます。{% endif %}</div>
+      <div class="map-box"><img src="/static/img/scooter.jpg" alt="配達のスクーター"><div class="map-caption" id="map-caption">配達員がオフィスに向かっています（地図はここに表示）</div></div>
+    </div>
+  </div>
+  <aside class="side side-sum">
+    {% include "_order_side.html" %}
+    <div class="stack-none"><div class="small muted">配達先</div><div>{{ order.address_label }}</div></div>
+    <div class="row">
+      <a class="btn btn-plain btn-sm flex-1" href="tel:{{ shop.tel }}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>店に電話</a>
+      <button class="btn btn-plain btn-sm flex-1 danger" type="button" id="cancel-open" {% if not can_cancel %}hidden{% endif %}>注文をキャンセル</button>
+    </div>
+    <a class="btn btn-outline btn-md" id="rate-link" href="/orders/{{ order.id }}/rate" {% if status.key != 'delivered' or order.is_rated %}hidden{% endif %}>評価する</a>
+  </aside>
+</div>
+{% endblock %}
+{% block modals %}
+<div class="modal-backdrop" id="cancel-modal" hidden>
+  <div class="modal" role="dialog" aria-label="注文をキャンセルしますか">
+    <div class="row-between"><div class="stack-none"><div class="h2">注文をキャンセルしますか？</div><div class="small muted">注文番号 #{{ order.id }}・{{ shop.name }}・{{ order.total|yen }}</div></div><button type="button" class="icon-btn" id="cancel-close" aria-label="閉じる"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="notice notice-yellow">店が受け付ける前なのでキャンセルできます。{% if order.payment == 'card' %}カードへの請求は取り消されます。{% endif %}店が受け付けた後はキャンセルできず、店に直接ご相談ください。</div>
+    <div class="stack-xs"><div class="small bold">理由（任意）</div>{% for r in reasons %}<label class="check check-md"><input type="radio" name="reason" value="{{ r }}">{{ r }}</label>{% endfor %}</div>
+    <div class="error" id="cancel-error" hidden></div>
+    <div class="row-end"><button type="button" class="btn btn-plain btn-md btn-fit" id="cancel-keep">注文を続ける</button><button type="button" class="btn btn-danger btn-md btn-fit" id="cancel-confirm">キャンセルする</button></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const orderId = {{ order.id }};
+  const TITLES = { preparing: "店が準備しています", pickup: "配達員が店に向かっています", delivering: "配達中です", delivered: "配達が完了しました", cancelled: "キャンセルされました", rejected: "お断りになりました" };
+  const CAPTIONS = { preparing: "店が料理を準備しています", pickup: "配達員が店に受け取りに向かっています", delivering: "配達員がオフィスに向かっています（地図はここに表示）", delivered: "お届けしました。ありがとうございました", cancelled: "この注文はキャンセルされました", rejected: "この注文は店がお断りしました" };
+  let timer = null;
+
+  function render(order) {
+    const st = order.status;
+    document.getElementById("heading").textContent = st.heading;
+    document.getElementById("status-title").textContent = TITLES[st.key] || st.label;
+    document.getElementById("map-caption").textContent = CAPTIONS[st.key] || "";
+    document.getElementById("countdown").hidden = st.is_final;
+    document.getElementById("seconds-left").textContent = "あと " + st.seconds_left + "秒";
+    document.getElementById("status-icon").dataset.key = st.key;
+    const steps = document.querySelectorAll("#timeline .tl-step");
+    const bars = document.querySelectorAll("#timeline .tl-bar");
+    order.stages.forEach((s, i) => {
+      steps[i].classList.toggle("is-done", s.done);
+      steps[i].classList.toggle("is-current", s.current);
+      steps[i].querySelector("[data-time]").textContent = s.at || "—";
+      if (i > 0) bars[i - 1].classList.toggle("is-done", s.done || s.current);
+    });
+    document.getElementById("cancel-open").hidden = !order.can_cancel;
+    document.getElementById("reject-box").hidden = st.key !== "rejected";
+    if (st.key === "rejected") document.getElementById("reject-reason").textContent = order.reject_reason;
+    document.getElementById("rate-link").hidden = !(st.key === "delivered" && !order.rating);
+    if (st.key === "delivered" && !order.rating) { stop(); location.href = "/orders/" + orderId + "/rate"; }
+    else if (st.is_final) stop();
+  }
+  async function poll() {
+    try { render(await Eats.api("GET", "/api/orders/" + orderId)); } catch (err) { /* 次の更新で取り直す */ }
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  render({{ order_json|tojson }});
+  if (!{{ order_json.status.is_final|tojson }}) timer = setInterval(poll, 1000);  // 届くまで1秒ごとに状態を取り直す
+
+  const modal = document.getElementById("cancel-modal");
+  document.getElementById("cancel-open").addEventListener("click", () => { modal.hidden = false; });
+  for (const id of ["cancel-close", "cancel-keep"]) document.getElementById(id).addEventListener("click", () => { modal.hidden = true; });
+  document.getElementById("cancel-confirm").addEventListener("click", async () => {
+    const reason = modal.querySelector("input[name=reason]:checked");
+    try {
+      await Eats.api("POST", "/api/orders/" + orderId + "/cancel", { reason: reason ? reason.value : "" });
+      location.reload();
+    } catch (err) { Eats.showError(document.getElementById("cancel-error"), err.message); }
+  });
+})();
+</script>
+{% endblock %}

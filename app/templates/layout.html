@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="topbar">
+  <a class="brand" href="/">2WINS Eats</a>
+  <div class="topbar-addr">
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    <span>配達先：{{ address_label }}</span>
+  </div>
+  <form class="search{% if q %} is-active{% endif %}" action="/search" method="get" role="search">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5c5c5c" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <label class="visually-hidden" for="q">店や料理を検索</label>
+    <input id="q" name="q" type="search" placeholder="店や料理を検索" value="{{ q or '' }}">
+  </form>
+  <div class="spacer"></div>
+  <div class="topbar-clock" title="アプリ内の現在時刻">
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    <span>現在 {{ now|hm }}</span>
+  </div>
+  <a class="cart-btn{% if not cart_count %} is-empty{% endif %}" href="/cart">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h2l2.5 11h11l2-7H7"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>
+    カート<span class="cart-count">{{ cart_count }}</span>
+  </a>
+  <a class="account-btn{% if request.url.path.startswith('/account') %} is-active{% endif %}" href="/account" aria-label="アカウント">2WINS</a>
+</header>
+{% block hero %}{% endblock %}
+<main class="page">
+{% block content %}{% endblock %}
+</main>
+{% block modals %}{% endblock %}
+{% block scripts %}{% endblock %}
+{% endblock %}

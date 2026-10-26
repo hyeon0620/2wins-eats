@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+{% block title %}2WINS Eats 配達完了・評価{% endblock %}
+{% block content %}
+<div class="steps"><span>1. カート</span><span>›</span><span>2. 注文確認</span><span>›</span><span class="is-active">3. 完了</span></div>
+<div class="two-col">
+  <div class="main-col stack-lg">
+    <div class="row">
+      <div class="status-icon" data-key="delivered"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5L20 7"/></svg></div>
+      <div class="stack-none"><h1 class="h1">配達が完了しました</h1><div class="small muted">注文番号 #{{ order.id }}・{{ shop.name }}・{{ status.stages[3].at|hms }} に受け取り</div></div>
+    </div>
+    {% if order.is_rated %}
+    <div class="card stack"><div class="h2">評価を送りました</div><div class="small muted">料理 {{ order.rating_food }}・配達 {{ order.rating_delivery }}{% if order.rating_comment %}・「{{ order.rating_comment }}」{% endif %}</div><a class="link" href="/">店一覧へ</a></div>
+    {% else %}
+    <form class="card stack-lg" method="post" action="/orders/{{ order.id }}/rate" id="rate-form">
+      <div class="stack-none"><div class="h2">ご注文はいかがでしたか？</div><div class="small muted">評価は店と配達員に届きます。1が大変残念、5が大変満足です。</div></div>
+      {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+      <div class="grid-2">
+        <div class="rate-box stack-sm">
+          <div class="row"><img class="thumb-40" src="/static/img/{{ order.lines[0].image }}" alt=""><div class="stack-none"><span class="small bold">料理の評価</span><span class="xsmall muted">{{ shop.name }}</span></div></div>
+          <div class="stars" data-group="food">
+            {% for n in range(1, 6) %}<label class="star" aria-label="{{ n }}{% if n == 1 %} 大変満足{% elif n == 5 %} 大変残念{% endif %}"><input type="radio" name="food" value="{{ n }}"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></label>{% endfor %}
+            <span class="small bold star-text" data-text>未選択</span>
+          </div>
+          <div class="row-between xsmall muted"><span>1 大変満足</span><span>5 大変残念</span></div>
+        </div>
+        <div class="rate-box stack-sm">
+          <div class="row"><div class="thumb-40 thumb-green"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f7b4f" stroke-width="2"><circle cx="7" cy="17" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M9.5 17h5M3 14l2-6h7l3 6"/></svg></div><div class="stack-none"><span class="small bold">配達の評価</span><span class="xsmall muted">15秒で到着</span></div></div>
+          <div class="stars" data-group="delivery">
+            {% for n in range(1, 6) %}<label class="star" aria-label="{{ n }}{% if n == 1 %} 大変残念{% elif n == 5 %} 大変満足{% endif %}"><input type="radio" name="delivery" value="{{ n }}"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z"/></svg></label>{% endfor %}
+            <span class="small bold star-text" data-text>未選択</span>
+          </div>
+          <div class="row-between xsmall muted"><span>1 大変残念</span><span>5 大変満足</span></div>
+        </div>
+      </div>
+      <div class="field"><label for="comment">コメント（任意）</label><textarea class="textarea" id="comment" name="comment" rows="2" placeholder="例：ラップのオンリーミートが最高でした"></textarea></div>
+      <div class="row-between"><a class="link muted" href="/">あとで評価する</a><button class="btn btn-primary btn-md btn-fit" type="submit">評価を送る</button></div>
+    </form>
+    {% endif %}
+  </div>
+  <aside class="side side-sum">
+    {% include "_order_side.html" %}
+    <div class="stack-xs small muted tl-list">
+      {% for s in status.stages %}<div class="sum-row{% if loop.last %} green bold{% endif %}"><span>{{ s.label }}</span><span>{{ s.at|hms }}</span></div>{% endfor %}
+    </div>
+    <a class="btn btn-outline btn-md" href="/stores/{{ shop.id }}">もう一度注文する</a>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const WORDS = { food: { 1: "大変満足", 2: "満足", 3: "ふつう", 4: "残念", 5: "大変残念" },
+                  delivery: { 1: "大変残念", 2: "残念", 3: "ふつう", 4: "満足", 5: "大変満足" } };
+  document.querySelectorAll(".stars").forEach(group => {
+    group.addEventListener("change", () => {
+      const picked = group.querySelector("input:checked");
+      const value = picked ? Number(picked.value) : 0;
+      // 選んだ星までを色で塗る
+      group.querySelectorAll(".star").forEach((star, i) => star.classList.toggle("is-on", i < value));
+      group.querySelector("[data-text]").textContent = value ? value + " " + WORDS[group.dataset.group][value] : "未選択";
+    });
+  });
+})();
+</script>
+{% endblock %}

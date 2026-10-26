@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+{% block title %}2WINS Eats カート{% endblock %}
+{% block content %}
+<div class="steps"><span class="is-active">1. カート</span><span>›</span><span>2. 注文確認</span><span>›</span><span>3. 完了</span></div>
+<div class="two-col">
+  <div class="main-col stack">
+    <div class="row-between align-base"><h1 class="h1">カート</h1>{% if shop %}<a class="link" href="/stores/{{ shop.id }}">{{ shop.name }}のメニューに戻る</a>{% endif %}</div>
+    {% if cart.lines %}
+    <div class="table" id="cart-table">
+      <div class="table-head cart-grid"><div>商品</div><div class="center">数量</div><div class="right">金額</div><div></div></div>
+      {% for line in cart.lines %}
+      <div class="table-row cart-grid" data-line="{{ line.id }}">
+        <div class="row">
+          <img class="thumb-72" src="/static/img/{{ line.image }}" alt="{{ line.name }}">
+          <div class="stack-xs"><div class="h3">{{ line.name }}</div>{% if line.choice_names %}<div class="small muted">{{ line.choice_names|join('・') }}</div>{% endif %}<div class="small muted">単価 {{ line.unit_price|yen }}</div></div>
+        </div>
+        <div class="center"><div class="qty qty-sm"><button type="button" class="qty-btn" data-delta="-1" aria-label="{{ line.name }}を減らす">−</button><input class="qty-input" type="number" value="{{ line.quantity }}" data-qty aria-label="{{ line.name }}の数量"><button type="button" class="qty-btn" data-delta="1" aria-label="{{ line.name }}を増やす">+</button></div></div>
+        <div class="right bold" data-line-total>{{ line.total|yen }}</div>
+        <button type="button" class="icon-btn icon-btn-plain" data-remove aria-label="{{ line.name }}を削除"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5c5c5c" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+      </div>
+      {% endfor %}
+    </div>
+    <form class="stack-xs" id="coupon-form">
+      <label class="small bold" for="coupon">クーポンコード</label>
+      <div class="row coupon-row">
+        <input class="input input-md" id="coupon" type="text" placeholder="例：2WINSEATS" value="{{ cart.coupon_code or '' }}">
+        <button class="btn btn-outline btn-md btn-fit" type="submit">適用</button>
+        {% if cart.coupon_code %}<button class="btn btn-plain btn-md btn-fit" type="button" id="coupon-remove">外す</button>{% endif %}
+      </div>
+      <div class="small muted" id="coupon-note">{{ cart.summary.coupon_label }}</div>
+      <div class="error" id="coupon-error" hidden></div>
+    </form>
+    <div class="small muted row"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>この店の最低注文金額は {{ summary.min_order|yen }}（配達料を除く）です。{% if summary.free_delivery_from is not none %}{{ summary.free_delivery_from|yen }} 以上で配達料が無料になります。{% endif %}</div>
+    {% else %}
+    <div class="card empty-cart stack">
+      <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0f7b4f" stroke-width="1.5"><path d="M3 4h2l2.5 11h11l2-7H7"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>
+      <div class="h2">カートは空です</div>
+      <div class="small muted center">店一覧から商品を追加してください。<br>カートに入れられるのは1つの店の商品だけです。</div>
+      <a class="btn btn-primary btn-md btn-fit" href="/">店一覧を見る</a>
+    </div>
+    {% endif %}
+  </div>
+  <aside class="side side-sum">
+    <div class="h3">ご注文内容</div>
+    <div class="sum stack-xs">
+      <div class="sum-row"><span>小計（<span id="sum-count">{{ summary.item_count }}</span>点）</span><span id="sum-subtotal">{{ summary.subtotal|yen }}</span></div>
+      <div class="sum-row"><span>配達料</span><span id="sum-fee">{{ summary.delivery_fee|yen if cart.lines else '—' }}</span></div>
+      <div class="sum-row muted"><span>クーポン割引</span><span id="sum-discount">−{{ summary.discount|yen }}</span></div>
+      <div class="hr"></div>
+      <div class="sum-row sum-total"><span>合計</span><span id="sum-total">{{ summary.total|yen }}</span></div>
+    </div>
+    <div class="stack-xs"><div class="small muted">配達先</div><div>{{ address.label if address else '未設定（アカウント設定で追加してください）' }}</div></div>
+    {% if eta %}<div class="stack-xs"><div class="small muted">到着予定</div><div>{{ eta|hm }} ごろ</div></div>{% endif %}
+    <a class="btn btn-primary btn-md{% if not cart.lines or not summary.min_order_ok %} is-disabled{% endif %}" id="checkout-btn" href="/checkout" {% if not cart.lines or not summary.min_order_ok %}aria-disabled="true"{% endif %}>注文手続きへ</a>
+    <div class="small muted center" id="min-note">{% if not cart.lines %}商品を追加すると進めます{% elif not summary.min_order_ok %}最低注文金額まで、あと {{ summary.short_of_min|yen }}{% elif summary.to_free_delivery %}あと {{ summary.to_free_delivery|yen }} で配達料が無料になります{% endif %}</div>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const table = document.getElementById("cart-table");
+  function renderSummary(cart) {
+    const s = cart.summary;
+    document.getElementById("sum-count").textContent = s.item_count;
+    document.getElementById("sum-subtotal").textContent = Eats.yen(s.subtotal);
+    document.getElementById("sum-fee").textContent = cart.lines.length ? Eats.yen(s.delivery_fee) : "—";
+    document.getElementById("sum-discount").textContent = "−" + Eats.yen(s.discount);
+    document.getElementById("sum-total").textContent = Eats.yen(s.total);
+    const btn = document.getElementById("checkout-btn");
+    const ok = cart.lines.length && s.min_order_ok;
+    btn.classList.toggle("is-disabled", !ok);
+    btn.setAttribute("aria-disabled", ok ? "false" : "true");
+    document.getElementById("min-note").textContent = !cart.lines.length ? "商品を追加すると進めます"
+      : !s.min_order_ok ? "最低注文金額まで、あと " + Eats.yen(s.short_of_min)
+      : s.to_free_delivery ? "あと " + Eats.yen(s.to_free_delivery) + " で配達料が無料になります" : "";
+    document.getElementById("coupon-note").textContent = s.coupon_label || "";
+  }
+  function renderLines(cart) {
+    for (const row of table.querySelectorAll("[data-line]")) {
+      const line = cart.lines.find(l => String(l.id) === row.dataset.line);
+      if (!line) { row.remove(); continue; }
+      row.querySelector("[data-qty]").value = line.quantity;
+      row.querySelector("[data-line-total]").textContent = Eats.yen(line.total);
+    }
+    if (!cart.lines.length) location.reload();
+  }
+  async function setQuantity(row, quantity) {
+    try {
+      const cart = await Eats.api("PATCH", "/api/cart/lines/" + row.dataset.line, { quantity });
+      renderLines(cart);
+    } catch (err) { alert(err.message); location.reload(); }
+  }
+  if (table) {
+    table.addEventListener("click", async (e) => {
+      const row = e.target.closest("[data-line]");
+      if (!row) return;
+      if (e.target.closest("[data-remove]")) {
+        try {
+          const cart = await Eats.api("DELETE", "/api/cart/lines/" + row.dataset.line);
+          renderLines(cart);
+          renderSummary(cart);
+        } catch (err) { alert(err.message); }
+      } else if (e.target.closest("[data-delta]")) {
+        const current = Number(row.querySelector("[data-qty]").value);
+        setQuantity(row, current + Number(e.target.closest("[data-delta]").dataset.delta));
+      }
+    });
+    table.addEventListener("change", (e) => {  // 数量を直接打ち込んだとき
+      const row = e.target.closest("[data-line]");
+      if (row && e.target.matches("[data-qty]")) setQuantity(row, Number(e.target.value));
+    });
+  }
+  const couponForm = document.getElementById("coupon-form");
+  if (couponForm) {
+    couponForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById("coupon-error");
+      Eats.showError(errorEl, "");
+      try {
+        const cart = await Eats.api("POST", "/api/cart/coupon", { code: document.getElementById("coupon").value });
+        renderSummary(cart);
+        location.reload();
+      } catch (err) { Eats.showError(errorEl, err.message); }
+    });
+    const remove = document.getElementById("coupon-remove");
+    if (remove) remove.addEventListener("click", async () => { await Eats.api("DELETE", "/api/cart/coupon"); location.reload(); });
+  }
+  document.getElementById("checkout-btn").addEventListener("click", (e) => { if (e.currentTarget.classList.contains("is-disabled")) e.preventDefault(); });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block title %}2WINS Eats 検索結果{% endblock %}
+{% block content %}
+<div class="two-col">
+  <form class="filters" method="get" action="/search">
+    <input type="hidden" name="q" value="{{ q }}">
+    <div class="h3">絞り込み</div>
+    <div class="stack-sm">
+      <div class="small muted bold">カテゴリ</div>
+      {% for key, label, _ in categories %}
+      <label class="check"><input type="checkbox" name="category" value="{{ key }}"{% if key in selected %} checked{% endif %} onchange="this.form.submit()">{{ label }}</label>
+      {% endfor %}
+    </div>
+    <div class="stack-sm">
+      <div class="small muted bold">条件</div>
+      <label class="check"><input type="checkbox" name="open" value="true"{% if open_only %} checked{% endif %} onchange="this.form.submit()">営業中のみ</label>
+      <label class="check"><input type="checkbox" name="free_delivery" value="true"{% if free_delivery %} checked{% endif %} onchange="this.form.submit()">配達料無料</label>
+      <label class="check"><input type="checkbox" name="within_30" value="true"{% if within_30 %} checked{% endif %} onchange="this.form.submit()">30分以内に届く</label>
+    </div>
+    <a class="btn btn-sm btn-plain" href="/search?q={{ q|urlencode }}">条件をクリア</a>
+  </form>
+  <div class="main-col stack-lg">
+    <div class="row-between">
+      <div class="h2">「{{ q }}」の検索結果 <span class="muted normal">店 {{ result.stores|length }}件・料理 {{ result.items|length }}件</span></div>
+      <form class="sort" method="get" action="/search">
+        <input type="hidden" name="q" value="{{ q }}">
+        {% for c in selected %}<input type="hidden" name="category" value="{{ c }}">{% endfor %}
+        {% if open_only %}<input type="hidden" name="open" value="true">{% endif %}
+        {% if free_delivery %}<input type="hidden" name="free_delivery" value="true">{% endif %}
+        {% if within_30 %}<input type="hidden" name="within_30" value="true">{% endif %}
+        <label for="sort">並び順</label>
+        <select class="select" id="sort" name="sort" onchange="this.form.submit()">
+          <option value="relevance"{% if sort == 'relevance' %} selected{% endif %}>関連度順</option>
+          <option value="eta"{% if sort == 'eta' %} selected{% endif %}>配達が早い順</option>
+          <option value="rating"{% if sort == 'rating' %} selected{% endif %}>評価が高い順</option>
+        </select>
+      </form>
+    </div>
+    {% if not q %}
+    <div class="notice">店や料理の名前を入力して検索してください。</div>
+    {% elif not result.stores and not result.items %}
+    <div class="empty"><div class="h3">「{{ q }}」に一致する店・料理は見つかりませんでした</div><a class="link" href="/">店一覧を見る</a></div>
+    {% else %}
+    {% if result.stores %}
+    <section class="stack">
+      <div class="h3">店</div>
+      {% for hit in result.stores %}
+      <a class="result-store" href="/stores/{{ hit.store.id }}">
+        <img src="/static/img/{{ hit.store.image }}" alt="{{ hit.store.name }}">
+        <div class="stack-xs">
+          <div class="row"><span class="h3">{{ hit.store.name }}</span><span class="pill pill-{{ 'green' if hit.status.orderable else 'dark' }}">{{ hit.status.label }}</span></div>
+          <div class="small muted">{{ describe_long(hit.store) }}</div>
+          <div class="small muted">{{ hit.menu_text }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    </section>
+    {% endif %}
+    {% if result.items %}
+    <section class="stack">
+      <div class="h3">料理</div>
+      <div class="grid-3">
+        {% for hit in result.items %}
+        <a class="result-item{% if not hit.item.available %} is-dim{% endif %}" href="/stores/{{ hit.store.id }}/items/{{ hit.item.id }}">
+          <img src="/static/img/{{ hit.item.image }}" alt="{{ hit.item.name }}">
+          <div class="row"><span class="h3">{{ hit.item.name }}</span>{% if not hit.item.available %}<span class="pill pill-grey">売り切れ</span>{% endif %}</div>
+          <div class="small muted">{{ hit.store.name }}・{{ hit.item.price|yen }}{% if hit.via_description %}・説明に「{{ q }}」を含む{% endif %}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

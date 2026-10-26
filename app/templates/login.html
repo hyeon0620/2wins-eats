@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}2WINS Eats ログイン{% endblock %}
+{% block body %}
+<div class="split">
+  <div class="split-left">
+    <div>
+      <div class="split-brand">2WINS Eats</div>
+      <div class="split-tagline">オフィスから、いつもの昼ごはんを。</div>
+    </div>
+    <img class="split-hero" src="/static/img/scooter.jpg" alt="配達のスクーター">
+    <div class="split-note">社内輪講ハンズオン用アプリ・本物の決済は行いません</div>
+  </div>
+  <div class="split-right">
+    <form class="form" method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div>
+        <div class="form-title">ログイン</div>
+        <div class="form-lead">社用メールアドレスでログインしてください</div>
+      </div>
+      {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+      <div class="field">
+        <label for="email">メールアドレス</label>
+        <input class="input" id="email" name="email" type="email" placeholder="name@2wins.ai" value="{{ email or '' }}" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="password">パスワード</label>
+        <input class="input" id="password" name="password" type="password" placeholder="8文字以上" autocomplete="current-password">
+      </div>
+      <label class="check"><input type="checkbox" name="remember" value="true" checked>ログイン状態を保持する</label>
+      <button class="btn btn-primary" type="submit">ログイン</button>
+      <div class="divider">はじめての方</div>
+      <a class="btn btn-outline" href="/signup">新規登録</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

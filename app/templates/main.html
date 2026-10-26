@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+{% block title %}2WINS Eats 店一覧{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <div class="chips">
+    {% for key, label, href, active in chips %}
+    <a class="chip{% if active %} is-active{% endif %}" href="{{ href }}">{{ label }}</a>
+    {% endfor %}
+    <a class="chip{% if open_only %} is-active{% endif %}" href="{{ open_link }}">営業中のみ</a>
+  </div>
+  <form class="sort" method="get" action="/">
+    {% if category != "all" %}<input type="hidden" name="category" value="{{ category }}">{% endif %}
+    {% if open_only %}<input type="hidden" name="open" value="1">{% endif %}
+    <label for="sort">並び順</label>
+    <select class="select" id="sort" name="sort" onchange="this.form.submit()">
+      {% for key, label in sorts %}
+      <option value="{{ key }}"{% if key == sort %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<section class="section">
+  <div class="section-head">
+    <div class="section-title">近くの店</div>
+    <div class="section-sub">{{ total_count }}件・営業中 {{ open_count }}件</div>
+  </div>
+  {% if stores %}
+  <div class="store-grid">
+    {% for v in stores %}
+    <a class="store-card" href="/stores/{{ v.store.id }}">
+      <div class="store-thumb{% if v.status.kind == 'paused' %} is-dim{% endif %}">
+        <img src="/static/img/{{ v.store.image }}" alt="{{ v.store.name }}">
+        <div class="badge {{ v.status.kind }}">{{ v.status.label }}</div>
+      </div>
+      <div class="store-meta">
+        <div>
+          <div class="store-name">{{ v.store.name }}</div>
+          <div class="store-sub">{{ v.subtitle }}</div>
+        </div>
+        <div class="rating">{{ "%.1f"|format(v.store.rating) }}</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">この条件に合う店はありません</div>
+  {% endif %}
+</section>
+{% endblock %}

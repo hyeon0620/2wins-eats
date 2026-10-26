@@ -1,0 +1,11 @@
+{# 注文内容のサイドカード。track と rate で共通 #}
+<div class="h3">注文内容</div>
+{% for line in order.lines %}
+<div class="side-item"><img src="/static/img/{{ line.image }}" alt=""><div class="stack-none"><span class="small medium">{{ line.name }} ×{{ line.quantity }}</span>{% if line.choice_names %}<span class="xsmall muted">{{ line.choice_names|join('・') }}</span>{% endif %}</div><span class="small bold">{{ line.total|yen }}</span></div>
+{% endfor %}
+<div class="sum stack-xs">
+  <div class="sum-row"><span>配達料</span><span>{{ order.delivery_fee|yen }}</span></div>
+  {% if order.discount %}<div class="sum-row muted"><span>クーポン割引</span><span>−{{ order.discount|yen }}</span></div>{% endif %}
+  <div class="sum-row sum-total"><span>合計</span><span>{{ order.total|yen }}</span></div>
+  <div class="small muted" id="payment-text">{% if order.payment == 'card' %}{{ order.payment_label }}で{% if order.payment_status == 'refunded' %}決済済み（返金済み）{% elif order.payment_status == 'paid' %}決済済み{% else %}決済{% endif %}{% elif order.payment == 'cash' %}現金で受け取り時にお支払い{% else %}社内請求（月末にまとめて精算）{% endif %}</div>
+</div>

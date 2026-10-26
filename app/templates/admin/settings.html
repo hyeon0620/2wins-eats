@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+{% block title %}2WINS Eats 店側 店の設定{% endblock %}
+{% block admin %}
+<form method="post" action="/admin/settings" class="stack">
+  <div class="row-between"><h1 class="h1">店の設定</h1><button class="btn btn-primary btn-md btn-fit" type="submit">保存</button></div>
+  {% if saved %}<div class="notice">保存しました。</div>{% endif %}
+  {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+  <div class="grid-2">
+    <div class="card stack-sm">
+      <div class="small bold">基本情報</div>
+      <div class="field"><label for="sname">店名</label><input class="input input-sm" id="sname" name="name" type="text" value="{{ store.name }}"></div>
+      <div class="field"><label for="scat">カテゴリ</label><select class="select select-sm" id="scat" name="category">{% for key, label in categories %}<option value="{{ key }}"{% if store.category == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="stel">電話番号（客に表示）</label><input class="input input-sm" id="stel" name="tel" type="tel" value="{{ store.tel }}"></div>
+    </div>
+    <div class="card stack-sm">
+      <div class="small bold">配達と注文の条件</div>
+      <div class="field"><label for="fee">配達料</label><div class="row"><span class="muted">¥</span><input class="input input-sm input-num" id="fee" name="delivery_fee" type="text" value="{{ store.delivery_fee }}"></div></div>
+      <div class="field"><label for="freefrom">配達料が無料になる小計（空欄なら無料にならない）</label><div class="row"><span class="muted">¥</span><input class="input input-sm input-num" id="freefrom" name="free_delivery_from" type="text" value="{{ store.free_delivery_from if store.free_delivery_from is not none else '' }}"></div></div>
+      <div class="field"><label for="minorder">最低注文金額（配達料を除く）</label><div class="row"><span class="muted">¥</span><input class="input input-sm input-num" id="minorder" name="min_order" type="text" value="{{ store.min_order }}"></div></div>
+      <div class="field"><label for="eta">配達目安（最短〜最長）</label><div class="row"><input class="input input-sm input-num" id="eta" name="eta_min" type="text" value="{{ store.eta_min }}" aria-label="最短（分）">〜<input class="input input-sm input-num" name="eta_max" type="text" value="{{ store.eta_max }}" aria-label="最長（分）">分</div></div>
+    </div>
+  </div>
+  <div class="card stack-sm">
+    <div class="row align-base"><span class="small bold">営業時間</span><span class="xsmall muted">閉店の30分前に受付を終了します</span></div>
+    <div class="hours-grid xsmall muted"><div>曜日</div><div>開店</div><div></div><div>閉店</div><div>定休</div></div>
+    {% for weekday, label, open_at, close_at, closed in hours %}
+    <div class="hours-grid">
+      <div class="bold">{{ label }}</div>
+      <input class="input input-sm" type="time" name="open_{{ weekday }}" value="{{ open_at }}" aria-label="{{ label }}曜 開店"{% if closed %} disabled{% endif %}>
+      <div class="center muted">〜</div>
+      <input class="input input-sm" type="time" name="close_{{ weekday }}" value="{{ close_at }}" aria-label="{{ label }}曜 閉店"{% if closed %} disabled{% endif %}>
+      <label class="check"><input type="checkbox" name="closed_{{ weekday }}" value="true"{% if closed %} checked{% endif %} onchange="const r=this.closest('.hours-grid'); r.querySelectorAll('input[type=time]').forEach(i=>i.disabled=this.checked)">定休</label>
+    </div>
+    {% endfor %}
+    <div class="xsmall muted">時刻は日本時間で保存されます</div>
+  </div>
+</form>
+{% endblock %}

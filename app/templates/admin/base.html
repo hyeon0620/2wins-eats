@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block bodyclass %}admin{% endblock %}
+{% block body %}
+<div class="admin-shell">
+  <nav class="admin-side">
+    <div class="xsmall muted">2WINS Eats 店舗管理</div>
+    <div class="admin-store-name">{{ store.name }}</div>
+    <a class="nav-link{% if nav == 'orders' %} is-active{% endif %}" href="/admin"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 12h6M9 16h6"/></svg>注文</a>
+    <a class="nav-link{% if nav == 'menu' %} is-active{% endif %}" href="/admin/menu"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>メニュー</a>
+    <a class="nav-link{% if nav == 'sales' %} is-active{% endif %}" href="/admin/sales"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>売上</a>
+    <a class="nav-link{% if nav == 'settings' %} is-active{% endif %}" href="/admin/settings"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>店の設定</a>
+    <div class="spacer"></div>
+    <div class="admin-toggle">
+      <div class="xsmall muted">注文の受付</div>
+      <label class="row-between bold"><span id="accepting-label" class="{{ 'green' if store.accepting else 'danger' }}">{{ '受付中' if store.accepting else '受付停止中' }}</span><input type="checkbox" id="accepting-toggle" class="switch"{% if store.accepting %} checked{% endif %}></label>
+    </div>
+    <form method="post" action="/admin/logout"><button class="nav-link muted" type="submit">ログアウト</button></form>
+  </nav>
+  <main class="admin-main">{% block admin %}{% endblock %}</main>
+</div>
+{% block modals %}{% endblock %}
+<script>
+document.getElementById("accepting-toggle").addEventListener("change", async (e) => {
+  try {
+    const res = await Eats.api("PATCH", "/api/admin/store", { accepting: e.target.checked });
+    const label = document.getElementById("accepting-label");
+    label.textContent = res.accepting ? "受付中" : "受付停止中";
+    label.className = res.accepting ? "green" : "danger";
+  } catch (err) { alert(err.message); e.target.checked = !e.target.checked; }
+});
+</script>
+{% block scripts %}{% endblock %}
+{% endblock %}
